@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -sL https://unpkg.com/javascript-lp-solver/prod/solver.js -o /Users/nicobarbe/Coding/Festival_Planner/solver.js)",
+      "Bash(npm pack *)",
+      "Bash(npm show *)",
+      "Bash(git remote *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Initial commit *)"
+    ]
+  }
+}
