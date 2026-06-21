@@ -107,7 +107,8 @@ body { font-family: system-ui, -apple-system, sans-serif; background: #0d1b2a; c
 
 /* ── BOAT ── */
 .boat-wrap { display: flex; align-items: flex-start; flex-shrink: 0; }
-.row-labels-col { display: flex; flex-direction: column; gap: 3px; padding-top: 98px; width: 28px; flex-shrink: 0; }
+.boat-seats-row { display: flex; gap: 0; }
+.row-labels-col { display: flex; flex-direction: column; gap: 3px; width: 28px; flex-shrink: 0; pointer-events: none; }
 .row-label-item { height: 42px; display: flex; align-items: center; justify-content: flex-end; font-size: 0.65rem; color: #5a8aa0; padding-right: 6px; }
 .boat-card { background: #1a2a3a; border-radius: 12px; border: 1px solid #1e3248; overflow: hidden; width: 300px; flex-shrink: 0; }
 .boat-header { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 11px 14px; background: #162230; border-bottom: 1px solid #1e3248; }
@@ -140,7 +141,7 @@ body { font-family: system-ui, -apple-system, sans-serif; background: #0d1b2a; c
 .side-labels { display: flex; gap: 16px; }
 .sl-L { color: #4fc3f7; font-size: 0.68rem; font-weight: 700; }
 .sl-R { color: #ff7043; font-size: 0.68rem; font-weight: 700; }
-.boat-seats { display: flex; flex-direction: column; gap: 3px; }
+.boat-seats { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .boat-row { display: flex; gap: 3px; align-items: center; }
 
 /* ── SEATS ── */
