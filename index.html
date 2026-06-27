@@ -9,6 +9,30 @@
 <body>
   <div id="app"></div>
   <div id="toast"></div>
+  <div id="theme-toggle">
+    <button class="theme-btn active" data-t="dark"         title="Dark">🌙</button>
+    <button class="theme-btn"        data-t="light"        title="Light">☀️</button>
+    <button class="theme-btn"        data-t="cotton-candy" title="Cotton Candy">🍬</button>
+  </div>
+  <script>
+    (function () {
+      const saved = localStorage.getItem('theme') || 'dark';
+      document.documentElement.dataset.theme = saved === 'dark' ? '' : saved;
+      document.documentElement.setAttribute('data-theme', saved);
+      document.addEventListener('DOMContentLoaded', function () {
+        const btns = document.querySelectorAll('.theme-btn');
+        btns.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.t === saved);
+          btn.addEventListener('click', function () {
+            const t = this.dataset.t;
+            document.documentElement.setAttribute('data-theme', t);
+            localStorage.setItem('theme', t);
+            btns.forEach(b => b.classList.toggle('active', b.dataset.t === t));
+          });
+        });
+      });
+    })();
+  </script>
   <script src="solver.js"></script>
   <script src="data.js?v=2"></script>
   <script src="app.js"></script>

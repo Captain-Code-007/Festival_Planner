@@ -434,7 +434,6 @@ function boatHtml(teamIdx, heatIdx, heat) {
   const backPct  = 100 - frontPct;
 
   return `<div class="boat-wrap">
-  <div class="row-labels-col">${rowLabelsHtml}</div>
   <div class="boat-card">
     <div class="boat-header">
       <span class="hlabel">Heat ${heatIdx + 1}</span>
@@ -459,7 +458,10 @@ function boatHtml(teamIdx, heatIdx, heat) {
           ${specialSeatHtml(teamIdx, heatIdx, 'drummer', heat.drummerSeat)}
           <div class="side-labels"><span class="sl-L">◀ LEFT</span><span class="sl-R">RIGHT ▶</span></div>
         </div>
-        <div class="boat-seats">${rowsHtml}</div>
+        <div class="boat-seats-row">
+          <div class="row-labels-col">${rowLabelsHtml}</div>
+          <div class="boat-seats">${rowsHtml}</div>
+        </div>
         <div class="boat-end steerer-row">
           ${specialSeatHtml(teamIdx, heatIdx, 'steerer', heat.steererSeat)}
         </div>
