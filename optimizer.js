@@ -120,11 +120,10 @@ function optimizeLineup(teamIdx, heatIdx, options) {
       if (p.side_excl && p.side_pref !== side) continue;
 
       const name = `x_${p.id}_${j}`;
-      const pos  = `${side}${seatRow(j)}`;
 
       let objCoeff = 0;
-      if (wt.side_pref && p.side_pref === side)               objCoeff += wt.side_pref;
-      if (wt.pref_pos  && p.pref_pos && p.pref_pos === pos)   objCoeff += wt.pref_pos;
+      if (wt.side_pref && p.side_pref === side)                        objCoeff += wt.side_pref;
+      if (wt.pref_pos  && p.pref_pos && p.pref_pos === seatZone(j))   objCoeff += wt.pref_pos;
 
       const v = { obj: objCoeff, [`seat_${j}`]: 1, [`paddler_${p.id}`]: 1 };
 
@@ -182,6 +181,62 @@ function optimizeLineup(teamIdx, heatIdx, options) {
   const maleCount   = newSeats.filter(pid => pid && getPaddler(pid)?.gender === 'M').length;
   const femaleCount = newSeats.filter(pid => pid && getPaddler(pid)?.gender === 'F').length;
 
+  // ── Warnings ──────────────────────────────────────────────────────────────
+  const warnings = [];
+
+  const availableM = freeCandidates.filter(p => p.gender === 'M').length;
+  const availableF = freeCandidates.filter(p => p.gender === 'F').length;
+  const totalMale   = PADDLERS.filter(p => p.participating && p.gender === 'M').length;
+  const totalFemale = PADDLERS.filter(p => p.participating && p.gender === 'F').length;
+  const conflictedM = totalMale   - availableM - [...lockedPaddlerIds].filter(id => getPaddler(id)?.gender === 'M').length;
+  const conflictedF = totalFemale - availableF - [...lockedPaddlerIds].filter(id => getPaddler(id)?.gender === 'F').length;
+
+  if (wt.gender > 0) {
+    const targetM = genderTargets?.males   ?? 0;
+    const targetF = genderTargets?.females ?? 0;
+    if (maleCount < targetM) {
+      const reason = availableM < targetM
+        ? `only ${availableM} male${availableM !== 1 ? 's' : ''} available${conflictedM > 0 ? ` (${conflictedM} excluded due to time conflicts)` : ''}`
+        : 'balance or side constraints prevented placing more';
+      warnings.push(`Could only place ${maleCount}/${targetM} males — ${reason}.`);
+    }
+    if (femaleCount < targetF) {
+      const reason = availableF < targetF
+        ? `only ${availableF} female${availableF !== 1 ? 's' : ''} available${conflictedF > 0 ? ` (${conflictedF} excluded due to time conflicts)` : ''}`
+        : 'balance or side constraints prevented placing more';
+      warnings.push(`Could only place ${femaleCount}/${targetF} females — ${reason}.`);
+    }
+  }
+
+  if (wt.side_pref > 0) {
+    const wrongSide = newSeats.reduce((count, pid, seat) => {
+      if (!pid) return count;
+      const p = getPaddler(pid);
+      return p.side_pref !== seatSide(seat) ? count + 1 : count;
+    }, 0);
+    if (wrongSide > 0) {
+      warnings.push(`${wrongSide} paddler${wrongSide !== 1 ? 's' : ''} placed on non-preferred side to achieve balance.`);
+    }
+  }
+
+  if (wt.pref_pos > 0) {
+    const wrongZone = newSeats.reduce((count, pid, seat) => {
+      if (!pid) return count;
+      const p = getPaddler(pid);
+      if (!p.pref_pos) return count;
+      return p.pref_pos !== seatZone(seat) ? count + 1 : count;
+    }, 0);
+    if (wrongZone > 0) {
+      warnings.push(`${wrongZone} paddler${wrongZone !== 1 ? 's' : ''} placed outside their preferred zone.`);
+    }
+  }
+
+  if (placed < freeSeats.length) {
+    const shortfall = freeSeats.length - placed;
+    const totalConflicted = conflictedM + conflictedF;
+    warnings.push(`${shortfall} seat${shortfall !== 1 ? 's' : ''} left empty — not enough eligible paddlers${totalConflicted > 0 ? ` (${totalConflicted} excluded due to time conflicts)` : ''}.`);
+  }
+
   return {
     feasible:     true,
     seats:        newSeats,
@@ -192,6 +247,7 @@ function optimizeLineup(teamIdx, heatIdx, options) {
     placed,
     maleCount,
     femaleCount,
+    warnings,
     message:      `Placed ${placed} paddler${placed !== 1 ? 's' : ''} across ${freeSeats.length} free seat${freeSeats.length !== 1 ? 's' : ''}.`,
   };
 }

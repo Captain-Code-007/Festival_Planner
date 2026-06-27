@@ -2,6 +2,7 @@
 const state = {
   page: 'setup',
   festivalName: '',
+  rosterName: '',
   numTeams: 2,
   numHeats: 3,
   teamNames: ['Team A', 'Team B', 'Team C', 'Team D'],
@@ -40,6 +41,13 @@ function formatTime(t) {
 
 function seatSide(idx) { return idx % 2 === 0 ? 'L' : 'R'; }
 function seatRow(idx)  { return Math.floor(idx / 2) + 1; }
+function seatZone(idx) {
+  const row = seatRow(idx);
+  if (row === 1)          return 'Pacers';
+  if (row <= 4)           return 'Front';
+  if (row <= 7)           return 'Engine';
+  return 'Back';
+}
 
 function paddlerWeight(p) { return p.weight_kg; }
 
@@ -239,7 +247,10 @@ function renderPaddlers() {
       <td class="td-ppos">
         <select class="cell-sel ppos-sel" data-pid="${p.id}">
           <option value="">—</option>
-          ${Array.from({length:10},(_,i)=>`<option value="R${i+1}"${p.pref_pos===`R${i+1}`?' selected':''}>R${i+1}</option><option value="L${i+1}"${p.pref_pos===`L${i+1}`?' selected':''}>L${i+1}</option>`).join('')}
+          <option value="Pacers"${p.pref_pos==='Pacers'?' selected':''}>Pacers (R1)</option>
+          <option value="Front"${p.pref_pos==='Front'?' selected':''}>Front (R2–R4)</option>
+          <option value="Engine"${p.pref_pos==='Engine'?' selected':''}>Engine (R5–R7)</option>
+          <option value="Back"${p.pref_pos==='Back'?' selected':''}>Back (R8–R10)</option>
         </select>
       </td>
       <td class="td-gender">
@@ -263,6 +274,11 @@ function renderPaddlers() {
           <button class="sel-btn" data-act="deselect-all">Deselect All</button>
           <input type="search" class="search-inp" placeholder="Search by name…" id="roster-search">
         </div>
+      </div>
+      <div class="roster-file-bar">
+        <input class="text-input roster-name-inp" placeholder="Roster name…" value="${esc(state.rosterName)}" style="width:200px">
+        <button class="sel-btn" data-act="save-roster">Save Roster</button>
+        <button class="sel-btn" data-act="load-roster">Load Roster</button>
       </div>
       <div class="paddler-table-wrap">
         <table class="paddler-table">
@@ -288,6 +304,10 @@ function renderPaddlers() {
       const name = row.querySelector('.td-name').textContent.toLowerCase();
       row.style.display = name.includes(q) ? '' : 'none';
     });
+  });
+
+  document.querySelector('.roster-name-inp').addEventListener('input', e => {
+    state.rosterName = e.target.value;
   });
 }
 
@@ -320,7 +340,7 @@ function renderPlanner() {
   }).join('');
 
   document.getElementById('app').innerHTML = `
-    <div class="planner-page">
+    <div class="planner-page" id="planner-root">
       <div class="sidebar">
         <div class="sidebar-header">
           <button class="back-btn" data-act="back">← Setup</button>
@@ -329,6 +349,7 @@ function renderPlanner() {
             <h3>Paddlers <span class="roster-count">${activePaddlers.length}</span></h3>
             <button class="save-festival-btn" data-act="save">Save</button>
           </div>
+          <input type="search" class="sidebar-search" id="sidebar-search" placeholder="Search paddlers…">
         </div>
         <div class="legend">
           <span class="sb sb-L">L</span>Left&nbsp;
@@ -349,6 +370,17 @@ function renderPlanner() {
         <div class="boats-container">${boatsHtml}</div>
       </div>
     </div>`;
+
+  const sidebarSearch = document.getElementById('sidebar-search');
+  if (sidebarSearch) {
+    sidebarSearch.addEventListener('input', e => {
+      const q = e.target.value.toLowerCase();
+      document.querySelectorAll('.roster-chip').forEach(chip => {
+        const name = chip.querySelector('.chip-name').textContent.toLowerCase();
+        chip.style.display = name.includes(q) ? '' : 'none';
+      });
+    });
+  }
 }
 
 function specialSeatHtml(teamIdx, heatIdx, role, pid) {
@@ -454,8 +486,7 @@ function seatHtml(teamIdx, heatIdx, seatIdx, heat) {
 
   if (pid) {
     const p = getPaddler(pid);
-    const actualPos = `${seatSide(seatIdx)}${seatRow(seatIdx)}`;
-    const posMismatch = p.pref_pos && p.pref_pos !== actualPos;
+    const posMismatch = p.pref_pos && p.pref_pos !== seatZone(seatIdx);
     return `<div class="seat seat-${side} seat-filled${posMismatch ? ' seat-pos-mismatch' : ''}"
         data-team="${teamIdx}" data-heat="${heatIdx}" data-seat="${seatIdx}"
         draggable="true" data-pid="${pid}">
@@ -464,7 +495,7 @@ function seatHtml(teamIdx, heatIdx, seatIdx, heat) {
         <div class="chip-badges-sm">
           <span class="sb sb-${p.side_pref} sm">${p.side_pref}</span>
 
-          ${p.pref_pos ? `<span class="pp-b sm" title="Prefers ${p.pref_pos}${posMismatch ? ` — seated at ${actualPos}` : ''}">${p.pref_pos}</span>` : ''}
+          ${p.pref_pos ? `<span class="pp-b sm" title="Prefers ${p.pref_pos}${posMismatch ? ` — seated in ${seatZone(seatIdx)}` : ''}">${p.pref_pos}</span>` : ''}
         </div>
       </div>
       <button class="remove-btn" data-act="remove"
@@ -579,6 +610,8 @@ app.addEventListener('click', e => {
   else if (act === 'back')        { state.page = 'setup'; render(); }
   else if (act === 'select-all')   { PADDLERS.forEach(p => { p.participating = true; });  render(); }
   else if (act === 'deselect-all') { PADDLERS.forEach(p => { p.participating = false; }); render(); }
+  else if (act === 'save-roster')  { saveRoster(); }
+  else if (act === 'load-roster')  { loadRoster(); }
   else if (act === 'tab') {
     state.activeTeam = parseInt(btn.dataset.ti);
     render();
@@ -882,6 +915,10 @@ function buildOptimizerModalHtml() {
       </div>`;
   }).join('');
 
+  const warningsHtml = result?.warnings?.length
+    ? result.warnings.map(w => `<div class="opt-warning">⚠ ${esc(w)}</div>`).join('')
+    : '';
+
   const resultHtml = result ? `
     <div class="opt-result-box ${result.feasible ? 'opt-res-ok' : 'opt-res-err'}">
       <div class="opt-res-msg">${esc(result.message)}</div>
@@ -892,7 +929,8 @@ function buildOptimizerModalHtml() {
         </div>
         <div class="opt-res-stats">
           <span class="opt-res-gender"><span class="gb gb-M">M</span> ${result.maleCount} &nbsp; <span class="gb gb-F">F</span> ${result.femaleCount}</span>
-        </div>` : ''}
+        </div>
+        ${warningsHtml}` : ''}
     </div>` : '';
 
   return `
@@ -985,6 +1023,82 @@ document.addEventListener('click', e => {
     return;
   }
 });
+
+// ── ROSTER SAVE / LOAD ────────────────────────────────────────────────────────
+async function saveRoster() {
+  const name = state.rosterName.trim();
+  const suggestedName = 'roster_' + (name || 'roster').replace(/[^a-z0-9_\- ]/gi, '_') + '.json';
+  const json = JSON.stringify({
+    rosterName: name,
+    paddlers: PADDLERS.map(p => ({
+      id:            p.id,
+      name:          p.name,
+      participating: p.participating,
+      side_pref:     p.side_pref,
+      side_excl:     p.side_excl,
+      weight_kg:     p.weight_kg,
+      pref_pos:      p.pref_pos ?? null,
+      gender:        p.gender,
+    })),
+  }, null, 2);
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: 'Roster JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      showToast('Roster saved!', 'ok');
+    } catch (e) {
+      if (e.name !== 'AbortError') showToast('Save failed — ' + e.message);
+    }
+  } else {
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = suggestedName;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Roster saved!', 'ok');
+  }
+}
+
+function loadRoster() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data.paddlers)) throw new Error('Invalid roster file');
+        data.paddlers.forEach(saved => {
+          const p = getPaddler(saved.id);
+          if (!p) return;
+          p.participating = saved.participating ?? p.participating;
+          p.side_pref     = saved.side_pref     ?? p.side_pref;
+          p.side_excl     = saved.side_excl     ?? p.side_excl;
+          p.weight_kg     = saved.weight_kg     ?? p.weight_kg;
+          p.pref_pos      = saved.pref_pos      ?? null;
+          p.gender        = saved.gender        ?? p.gender;
+        });
+        if (data.rosterName) state.rosterName = data.rosterName;
+        render();
+        showToast('Roster loaded!', 'ok');
+      } catch {
+        showToast('Invalid file — could not load roster.');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
 
 // ── SAVE / LOAD ───────────────────────────────────────────────────────────────
 function buildSnapshot() {
