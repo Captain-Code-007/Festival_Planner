@@ -1083,12 +1083,12 @@ function loadRoster() {
         data.paddlers.forEach(saved => {
           const p = getPaddler(saved.id);
           if (!p) return;
-          p.participating = saved.participating ?? p.participating;
-          p.side_pref     = saved.side_pref     ?? p.side_pref;
-          p.side_excl     = saved.side_excl     ?? p.side_excl;
-          p.weight_kg     = saved.weight_kg     ?? p.weight_kg;
-          p.pref_pos      = saved.pref_pos      ?? null;
-          p.gender        = saved.gender        ?? p.gender;
+          p.participating = saved.participating;
+          p.side_pref     = saved.side_pref;
+          p.side_excl     = saved.side_excl;
+          p.weight_kg     = saved.weight_kg;
+          p.pref_pos      = saved.pref_pos ?? null;
+          p.gender        = saved.gender;
         });
         if (data.rosterName) state.rosterName = data.rosterName;
         render();
