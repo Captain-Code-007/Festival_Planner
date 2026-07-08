@@ -1083,6 +1083,7 @@ function loadRoster() {
         data.paddlers.forEach(saved => {
           const p = getPaddler(saved.id);
           if (!p) return;
+          p.name          = saved.name ?? p.name;
           p.participating = saved.participating;
           p.side_pref     = saved.side_pref;
           p.side_excl     = saved.side_excl;
