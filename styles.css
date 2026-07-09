@@ -407,6 +407,12 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg);
 .autofill-btn { padding: 3px 8px; background: var(--autofill-bg); border: 1px solid var(--autofill-bdr); border-radius: 5px; color: var(--autofill-txt); font-size: 0.72rem; cursor: pointer; white-space: nowrap; font-weight: 600; }
 .autofill-btn:hover { filter: brightness(1.1); }
 
+/* ── PRINT BUTTONS ── */
+.print-btn { padding: 3px 8px; background: var(--bg-hover); border: 1px solid var(--border-2); border-radius: 5px; color: var(--text); font-size: 0.72rem; cursor: pointer; white-space: nowrap; font-weight: 600; }
+.print-btn:hover { background: var(--bg-input); border-color: var(--accent); }
+.print-all-btn { padding: 5px 12px; background: var(--bg-input); border: 1px solid var(--border-2); border-radius: 6px; color: var(--text); font-size: 0.78rem; cursor: pointer; white-space: nowrap; font-weight: 600; }
+.print-all-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ── OPTIMIZER MODAL ── */
 .opt-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 100; display: flex; align-items: center; justify-content: center; }
 .opt-modal-box { background: var(--bg-panel); border: 1px solid var(--border-2); border-radius: 14px; width: 480px; max-width: calc(100vw - 40px); max-height: calc(100vh - 60px); display: flex; flex-direction: column; box-shadow: 0 32px 80px var(--shadow-box); }

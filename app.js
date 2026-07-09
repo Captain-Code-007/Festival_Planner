@@ -364,6 +364,7 @@ function renderPlanner() {
         <div class="team-tabs">
           ${tabsHtml}
           <div class="balance-toggle">
+            <button class="print-all-btn" data-act="print-team" data-ti="${state.activeTeam}" title="Print all boats for ${esc(team.name)}">🖨 Print All Boats</button>
             <button class="bal-btn${state.showBalance ? ' active' : ''}" data-act="toggle-balance">Balance</button>
           </div>
         </div>
@@ -442,6 +443,7 @@ function boatHtml(teamIdx, heatIdx, heat) {
       <div class="boat-header-actions">
         ${hasNext ? `<button class="copy-btn" data-act="copy-heat" data-team="${teamIdx}" data-heat="${heatIdx}" title="Copy this lineup to Heat ${heatIdx + 2}">Copy → Heat ${heatIdx + 2}</button>` : ''}
         <button class="autofill-btn" data-act="auto-fill" data-team="${teamIdx}" data-heat="${heatIdx}">Auto-fill</button>
+        <button class="print-btn" data-act="print-boat" data-team="${teamIdx}" data-heat="${heatIdx}" title="Print this boat lineup">🖨 Print</button>
       </div>
     </div>
     <div class="boat-visual">
@@ -620,6 +622,13 @@ app.addEventListener('click', e => {
   }
   else if (act === 'auto-fill') {
     showOptimizerModal(parseInt(btn.dataset.team), parseInt(btn.dataset.heat));
+  }
+  else if (act === 'print-boat') {
+    printBoats(parseInt(btn.dataset.team), [parseInt(btn.dataset.heat)]);
+  }
+  else if (act === 'print-team') {
+    const ti = parseInt(btn.dataset.ti);
+    printBoats(ti, state.teams[ti].heats.map((_, i) => i));
   }
   else if (act === 'copy-heat') {
     const ti = parseInt(btn.dataset.team), hi = parseInt(btn.dataset.heat);
@@ -822,6 +831,132 @@ function clearFromSlot(from) {
   if (from.role === 'drummer')      h.drummerSeat = null;
   else if (from.role === 'steerer') h.steererSeat = null;
   else                              h.seats[from.seatIdx] = null;
+}
+
+// ── PRINT ─────────────────────────────────────────────────────────────────────
+const PRINT_CSS = `
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #fff; color: #1a2a3a; }
+  .print-page { padding: 22px 28px; page-break-after: always; }
+  .print-page:last-child { page-break-after: auto; }
+  .pp-header { text-align: center; margin-bottom: 14px; border-bottom: 2px solid #1a2a3a; padding-bottom: 8px; }
+  .pp-festival { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1.5px; color: #5a7a9a; font-weight: 700; }
+  .pp-header h1 { margin: 4px 0; font-size: 1.4rem; }
+  .pp-heat { color: #5a7a9a; font-weight: 500; }
+  .pp-meta { font-size: 0.82rem; color: #5a7a9a; }
+  .pp-boat-stage { display: flex; justify-content: center; padding: 6px 0 16px; }
+  .pb-hull {
+    position: relative;
+    width: 300px;
+    background: linear-gradient(180deg, #eecb6e, #c99a2e);
+    border: 3px solid #8a6410;
+    border-radius: 130px 130px 22px 22px / 56px 56px 14px 14px;
+    padding: 18px 14px 26px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+  }
+  .pb-head { text-align: center; font-size: 2.1rem; margin-top: -42px; margin-bottom: 2px; line-height: 1; }
+  .pb-drummer, .pb-steerer {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #fff8ea; border: 2px dashed #8a6410; border-radius: 9px;
+    padding: 5px 8px; margin: 0 auto 8px; width: 72%;
+  }
+  .pb-steerer { margin-top: 8px; margin-bottom: -12px; }
+  .pb-role { font-size: 0.58rem; font-weight: 800; letter-spacing: 1px; color: #8a6410; }
+  .pb-role-name { font-size: 0.82rem; font-weight: 700; color: #1a2a3a; }
+  .pb-side-labels { display: flex; justify-content: space-between; padding: 0 4px; font-size: 0.6rem; font-weight: 700; letter-spacing: 1px; color: #6b4e0e; margin-bottom: 3px; }
+  .pb-seats { display: flex; flex-direction: column; gap: 4px; }
+  .pb-row { display: grid; grid-template-columns: 1fr 18px 1fr; align-items: center; gap: 5px; }
+  .pb-seat { background: #fff; border: 1.5px solid #8a6410; border-radius: 6px; padding: 4px 5px; text-align: center; font-size: 0.68rem; font-weight: 600; min-height: 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .pb-seat-L { border-left: 4px solid #1976d2; }
+  .pb-seat-R { border-right: 4px solid #d84315; }
+  .pb-empty { color: #b0b0b0; font-style: italic; }
+  .pb-row-num { text-align: center; font-size: 0.58rem; color: #8a6410; font-weight: 700; }
+  .pp-footer { display: flex; justify-content: space-between; font-size: 0.76rem; color: #5a7a9a; border-top: 1px solid #d0d8e0; padding-top: 6px; margin-top: 2px; }
+  @page { size: auto; margin: 10mm; }
+`;
+
+function buildPrintPage(team, heatIdx) {
+  const heat = team.heats[heatIdx];
+  const bal = boatBalance(heat.seats);
+
+  const rowsHtml = Array.from({ length: 10 }, (_, row) => {
+    const l = getPaddler(heat.seats[row * 2]);
+    const r = getPaddler(heat.seats[row * 2 + 1]);
+    return `<div class="pb-row">
+      <div class="pb-seat pb-seat-L${l ? '' : ' pb-empty'}">${l ? esc(l.name) : '—'}</div>
+      <div class="pb-row-num">${row + 1}</div>
+      <div class="pb-seat pb-seat-R${r ? '' : ' pb-empty'}">${r ? esc(r.name) : '—'}</div>
+    </div>`;
+  }).join('');
+
+  const drummer = getPaddler(heat.drummerSeat);
+  const steerer = getPaddler(heat.steererSeat);
+
+  return `<section class="print-page">
+    <header class="pp-header">
+      <div class="pp-festival">${esc(state.festivalName || 'Dragon Boat Festival')}</div>
+      <h1>${esc(team.name)} <span class="pp-heat">— Heat ${heatIdx + 1}</span></h1>
+      <div class="pp-meta">${esc(formatTime(heat.startTime))} &nbsp;•&nbsp; ${heat.seats.filter(Boolean).length}/20 seated</div>
+    </header>
+    <div class="pp-boat-stage">
+      <div class="pb-hull">
+        <div class="pb-head">🐉</div>
+        <div class="pb-drummer">
+          <span class="pb-role">DRUMMER</span>
+          <span class="pb-role-name">${drummer ? esc(drummer.name) : '—'}</span>
+        </div>
+        <div class="pb-side-labels"><span>◀ LEFT</span><span>RIGHT ▶</span></div>
+        <div class="pb-seats">${rowsHtml}</div>
+        <div class="pb-steerer">
+          <span class="pb-role">STEERER</span>
+          <span class="pb-role-name">${steerer ? esc(steerer.name) : '—'}</span>
+        </div>
+      </div>
+    </div>
+    <div class="pp-footer">
+      <span>Balance — L: ${bal.L} kg / R: ${bal.R} kg (${esc(bal.label)})</span>
+      <span>Printed ${new Date().toLocaleDateString()}</span>
+    </div>
+  </section>`;
+}
+
+function printBoats(teamIdx, heatIndices) {
+  const team = state.teams[teamIdx];
+  const pagesHtml = heatIndices.map(hi => buildPrintPage(team, hi)).join('');
+  const title = heatIndices.length > 1
+    ? `${esc(team.name)} — All Lineups`
+    : `${esc(team.name)} — Heat ${heatIndices[0] + 1}`;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<style>${PRINT_CSS}</style>
+</head>
+<body>${pagesHtml}</body>
+</html>`;
+
+  const frame = document.createElement('iframe');
+  frame.style.position = 'fixed';
+  frame.style.right = '0';
+  frame.style.bottom = '0';
+  frame.style.width = '0';
+  frame.style.height = '0';
+  frame.style.border = '0';
+  document.body.appendChild(frame);
+
+  frame.contentWindow.document.open();
+  frame.contentWindow.document.write(html);
+  frame.contentWindow.document.close();
+
+  const cleanup = () => { if (frame.parentNode) frame.parentNode.removeChild(frame); };
+  frame.contentWindow.onafterprint = cleanup;
+  // Content is fully inline (no external CSS/images), so it's ready synchronously —
+  // no need to wait for a 'load' event, which doesn't reliably re-fire after document.write().
+  frame.contentWindow.focus();
+  frame.contentWindow.print();
+  setTimeout(cleanup, 60000); // fallback in case onafterprint doesn't fire
 }
 
 // ── OPTIMIZER MODAL ───────────────────────────────────────────────────────────
